@@ -22,24 +22,24 @@
 #include "Json.h"
 #include "minecraft/MinecraftInstance.h"
 #include "minecraft/PackProfile.h"
-#include "net/NetJob.h"
 
 static ModrinthAPI api;
 static ModPlatform::ProviderCapabilities ProviderCaps;
 
-void Modrinth::loadIndexedPack(ModPlatform::IndexedPack& pack, QJsonObject& obj)
-{
+void Modrinth::loadIndexedPack(ModPlatform::IndexedPack& pack, QJsonObject& obj,
+                               ModAPI::ResourceType type) {
     pack.addonId = Json::ensureString(obj, "project_id");
     if (pack.addonId.toString().isEmpty())
         pack.addonId = Json::requireString(obj, "id");
 
     pack.provider = ModPlatform::Provider::MODRINTH;
     pack.name = Json::requireString(obj, "title");
-    
+
     pack.slug = Json::ensureString(obj, "slug", "");
-    if (!pack.slug.isEmpty())
+    if (!pack.slug.isEmpty()) {
+
         pack.websiteUrl = "https://modrinth.com/mod/" + pack.slug;
-    else
+    } else
         pack.websiteUrl = "";
 
     pack.description = Json::ensureString(obj, "description", "");
@@ -75,7 +75,7 @@ void Modrinth::loadExtraPackData(ModPlatform::IndexedPack& pack, QJsonObject& ob
         pack.extraData.discordUrl.chop(1);
 
     auto donate_arr = Json::ensureArray(obj, "donation_urls");
-    for(auto d : donate_arr){
+    for(auto d : std::as_const(donate_arr)){
         auto d_obj = Json::requireObject(d);
 
         ModPlatform::DonationData donate;
@@ -116,7 +116,7 @@ void Modrinth::loadIndexedPackVersions(ModPlatform::IndexedPack& pack,
     pack.versionsLoaded = true;
 }
 
-auto Modrinth::loadIndexedPackVersion(QJsonObject &obj, QString preferred_hash_type, QString preferred_file_name) -> ModPlatform::IndexedVersion
+ModPlatform::IndexedVersion Modrinth::loadIndexedPackVersion(QJsonObject &obj, QString preferred_hash_type, QString preferred_file_name, ModAPI::ResourceType type)
 {
     ModPlatform::IndexedVersion file;
 
@@ -127,11 +127,11 @@ auto Modrinth::loadIndexedPackVersion(QJsonObject &obj, QString preferred_hash_t
     if (versionArray.empty()) {
         return {};
     }
-    for (auto mcVer : versionArray) {
+    for (auto mcVer : std::as_const(versionArray)) {
         file.mcVersion.append(mcVer.toString());
     }
     auto loaders = Json::requireArray(obj, "loaders");
-    for (auto loader : loaders) {
+    for (auto loader : std::as_const(loaders)) {
         file.loaders.append(loader.toString());
     }
     file.version = Json::requireString(obj, "name");
@@ -167,7 +167,7 @@ auto Modrinth::loadIndexedPackVersion(QJsonObject &obj, QString preferred_hash_t
         file.fileName = Json::requireString(parent, "filename");
         file.is_preferred = Json::requireBoolean(parent, "primary") || (files.count() == 1);
         auto hash_list = Json::requireObject(parent, "hashes");
-        
+
         if (hash_list.contains(preferred_hash_type)) {
             file.hash = Json::requireString(hash_list, preferred_hash_type);
             file.hash_type = preferred_hash_type;
